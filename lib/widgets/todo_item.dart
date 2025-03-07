@@ -149,7 +149,7 @@ class TodoItem extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Provider.of<TodoProvider>(context, listen: false)
-                  .deleteTodo(todo.id);
+                  .deleteTodoById(todo.id);
               Navigator.of(ctx).pop();
 
               // Show a confirmation snackbar

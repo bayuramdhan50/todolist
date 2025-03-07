@@ -2,14 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/todo.dart';
 import '../services/notification_service.dart';
+import '../helpers/database_helper.dart';
 
 class TodoProvider with ChangeNotifier {
   final List<Todo> _todos = [];
   final NotificationService _notificationService = NotificationService();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   final _uuid = const Uuid();
 
   TodoProvider() {
-    // Schedule daily reminder at midnight when the provider is initialized
+    _loadTodos();
     scheduleDailyReminder();
   }
 
@@ -21,13 +23,12 @@ class TodoProvider with ChangeNotifier {
   List<Todo> get completedTodos =>
       _todos.where((todo) => todo.isCompleted).toList();
 
-  // Mengubah metode private menjadi publik agar dapat diakses dari luar
   void scheduleDailyReminder() {
     _notificationService.scheduleDailyReminderAt00();
   }
 
-  void addTodo(String title, String description, DateTime deadline,
-      {String subject = 'Umum', String difficulty = 'Sedang'}) {
+  Future<void> addTodo(String title, String description, DateTime deadline,
+      {String subject = 'Umum', String difficulty = 'Sedang'}) async {
     final newTodo = Todo(
       id: _uuid.v4(),
       title: title,
@@ -37,30 +38,39 @@ class TodoProvider with ChangeNotifier {
       difficulty: difficulty,
     );
 
-    _todos.add(newTodo);
+    await _dbHelper.insertTodo(newTodo);
+    await _loadTodos();
     _scheduleNotification(newTodo);
-    notifyListeners();
   }
 
-  void toggleTodoStatus(String id) {
+  Future<void> toggleTodoStatus(String id) async {
     final todoIndex = _todos.indexWhere((todo) => todo.id == id);
     if (todoIndex >= 0) {
-      _todos[todoIndex].isCompleted = !_todos[todoIndex].isCompleted;
+      final todo = _todos[todoIndex];
+      final updatedTodo = Todo(
+        id: todo.id,
+        title: todo.title,
+        description: todo.description,
+        deadline: todo.deadline,
+        subject: todo.subject,
+        difficulty: todo.difficulty,
+        isCompleted: !todo.isCompleted,
+      );
+      await _dbHelper.updateTodo(updatedTodo);
+      await _loadTodos();
 
-      if (_todos[todoIndex].isCompleted) {
+      if (updatedTodo.isCompleted) {
         _notificationService.cancelNotification(id);
       } else {
-        _scheduleNotification(_todos[todoIndex]);
+        _scheduleNotification(updatedTodo);
       }
-
-      notifyListeners();
     }
   }
 
-  void deleteTodo(String id) {
-    _todos.removeWhere((todo) => todo.id == id);
+  Future<void> deleteTodoById(String id) async {
+    await _dbHelper.deleteTodo(id);
+    await _loadTodos();
     _notificationService.cancelNotification(id);
-    notifyListeners();
   }
 
   void _scheduleNotification(Todo todo) {
@@ -69,5 +79,11 @@ class TodoProvider with ChangeNotifier {
       todo.title,
       todo.deadline,
     );
+  }
+
+  Future<void> _loadTodos() async {
+    _todos.clear();
+    _todos.addAll(await _dbHelper.getTodos());
+    notifyListeners();
   }
 }

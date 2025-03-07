@@ -25,7 +25,7 @@ class Todo {
       'deadline': deadline.millisecondsSinceEpoch,
       'subject': subject,
       'difficulty': difficulty,
-      'isCompleted': isCompleted,
+      'isCompleted': isCompleted ? 1 : 0, // Store as integer for SQLite
     };
   }
 
@@ -37,7 +37,7 @@ class Todo {
       deadline: DateTime.fromMillisecondsSinceEpoch(map['deadline']),
       subject: map['subject'] ?? 'Semua Matakuliah',
       difficulty: map['difficulty'] ?? 'Sedang',
-      isCompleted: map['isCompleted'],
+      isCompleted: map['isCompleted'] == 1, // Convert integer to boolean
     );
   }
 }
